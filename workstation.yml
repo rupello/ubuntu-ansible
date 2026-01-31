@@ -1,0 +1,137 @@
+# workstation.yml - Ubuntu workstation setup
+---
+- name: Configure Ubuntu Workstation
+  hosts: workstations
+  become: yes
+  vars:
+    user_home: "/home/{{ username }}"
+
+  tasks:
+    # ===================
+    # APT Packages
+    # ===================
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install apt packages
+      apt:
+        name: "{{ apt_packages }}"
+        state: present
+
+    # ===================
+    # Snap Packages
+    # ===================
+    - name: Install snap packages (classic)
+      snap:
+        name: "{{ item.name }}"
+        classic: yes
+      loop: "{{ snap_packages | selectattr('classic', 'equalto', true) | list }}"
+
+    - name: Install snap packages (strict)
+      snap:
+        name: "{{ item.name }}"
+      loop: "{{ snap_packages | selectattr('classic', 'equalto', false) | list }}"
+
+    # ===================
+    # UV (Python package manager)
+    # ===================
+    - name: Install uv
+      when: install_uv
+      block:
+        - name: Download and install uv
+          shell: curl -LsSf https://astral.sh/uv/install.sh | sh
+          args:
+            creates: "{{ user_home }}/.local/bin/uv"
+          become: no
+          become_user: "{{ username }}"
+
+    # ===================
+    # Kind (Kubernetes in Docker)
+    # ===================
+    - name: Install kind
+      when: install_kind
+      block:
+        - name: Download kind binary
+          get_url:
+            url: https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
+            dest: /usr/local/bin/kind
+            mode: '0755'
+
+    # ===================
+    # K9s (Kubernetes TUI)
+    # ===================
+    - name: Install k9s
+      when: install_k9s
+      block:
+        - name: Get latest k9s release
+          uri:
+            url: https://api.github.com/repos/derailed/k9s/releases/latest
+            return_content: yes
+          register: k9s_release
+
+        - name: Download k9s deb package
+          get_url:
+            url: "https://github.com/derailed/k9s/releases/download/{{ k9s_release.json.tag_name }}/k9s_linux_amd64.deb"
+            dest: /tmp/k9s_linux_amd64.deb
+
+        - name: Install k9s
+          apt:
+            deb: /tmp/k9s_linux_amd64.deb
+
+    # ===================
+    # NVM (Node Version Manager)
+    # ===================
+    - name: Install nvm
+      when: install_nvm
+      block:
+        - name: Download and install nvm
+          shell: curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+          args:
+            creates: "{{ user_home }}/.nvm/nvm.sh"
+          become: no
+          become_user: "{{ username }}"
+
+    # ===================
+    # Fisher (Fish plugin manager)
+    # ===================
+    - name: Install fisher
+      when: install_fisher
+      block:
+        - name: Install fisher for fish shell
+          shell: fish -c "curl -sL https://git.io/fisher | source && fisher install jorgebucaran/fisher"
+          args:
+            creates: "{{ user_home }}/.config/fish/functions/fisher.fish"
+          become: no
+          become_user: "{{ username }}"
+
+    # ===================
+    # Claude CLI
+    # ===================
+    - name: Install Claude CLI
+      when: install_claude_cli
+      block:
+        - name: Download and install Claude CLI
+          shell: curl -fsSL https://claude.ai/install.sh | bash
+          args:
+            creates: "{{ user_home }}/.claude/local/claude"
+          become: no
+          become_user: "{{ username }}"
+
+    # ===================
+    # Shell Configuration
+    # ===================
+    - name: Set fish as default shell
+      user:
+        name: "{{ username }}"
+        shell: /usr/bin/fish
+
+    # ===================
+    # SSH Server
+    # ===================
+    - name: Enable and start SSH server
+      systemd:
+        name: ssh
+        enabled: yes
+        state: started

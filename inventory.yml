@@ -1,0 +1,16 @@
+# inventory.yml
+---
+all:
+  children:
+    workstations:
+      hosts:
+        localhost:
+          ansible_connection: local
+    gpu_servers:
+      hosts:
+        localhost:
+          ansible_connection: local
+        # Add your GPU servers here
+        # gpu1:
+        #   ansible_host: 192.168.1.100
+        #   ansible_user: rupert

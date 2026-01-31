@@ -1,0 +1,108 @@
+# gpu-servers.yml - GPU server setup with NVIDIA drivers and tools
+#
+# Usage:
+#   Run all:        ansible-playbook gpu-servers.yml -i "localhost," -c local --ask-become-pass
+#   Run by tag:     ansible-playbook gpu-servers.yml -i "localhost," -c local --tags gcloud --ask-become-pass
+#
+# Available tags: prereqs, nvidia-drivers, cuda, gcloud, uv, reboot
+#
+# Note: For Docker + NVIDIA runtime, use docker-nvidia.yml
+---
+- name: Configure GPU Servers
+  hosts: all
+  become: yes
+
+  tasks:
+    # ===================
+    # Prerequisites
+    # ===================
+    - name: Install prerequisites
+      tags: prereqs
+      apt:
+        name:
+          - build-essential
+          - linux-headers-generic
+          - curl
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+          - just
+          - unzip
+        state: present
+        update_cache: yes
+
+    # ===================
+    # NVIDIA Drivers
+    # ===================
+    - name: Install NVIDIA drivers
+      tags: nvidia-drivers
+      apt:
+        name:
+          - nvidia-driver-550
+          - nvidia-utils-550
+        state: present
+
+    # ===================
+    # CUDA Toolkit
+    # ===================
+    - block:
+        - name: Install NVCC and CUDA toolkit
+          apt:
+            name:
+              - python3-dev
+              - nvidia-cuda-toolkit
+            state: present
+            update_cache: yes
+      tags: cuda
+
+    # ===================
+    # Google Cloud SDK
+    # ===================
+    - block:
+        - name: Add Google Cloud SDK GPG key
+          apt_key:
+            url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+            state: present
+
+        - name: Add Google Cloud SDK repository
+          apt_repository:
+            repo: "deb https://packages.cloud.google.com/apt cloud-sdk main"
+            state: present
+            filename: google-cloud-sdk
+
+        - name: Install Google Cloud SDK and components
+          apt:
+            name:
+              - google-cloud-sdk
+              - google-cloud-sdk-gke-gcloud-auth-plugin
+              - kubectl
+            state: present
+            update_cache: yes
+      tags: gcloud
+
+    # ===================
+    # UV (Python package manager)
+    # ===================
+    - block:
+        - name: Install uv globally
+          shell: |
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          args:
+            creates: /root/.local/bin/uv
+          environment:
+            INSTALLER_NO_MODIFY_PATH: "1"
+
+        - name: Create symlink for global uv access
+          file:
+            src: /root/.local/bin/uv
+            dest: /usr/local/bin/uv
+            state: link
+      tags: uv
+
+    # ===================
+    # Reboot
+    # ===================
+    - name: Reboot system
+      tags: [reboot, never]
+      reboot:
+        reboot_timeout: 300

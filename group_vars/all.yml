@@ -1,0 +1,39 @@
+# group_vars/all.yml
+---
+# User configuration
+username: rupello
+
+# Package lists
+apt_packages:
+  - fish
+  - btop
+  - neovim
+  - git
+  - curl
+  - wget
+  - jq
+  - ripgrep
+  - tree
+  - just
+  - unzip
+  - openssh-server
+  - podman
+  - build-essential
+  - linux-headers-generic
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+
+snap_packages:
+  - name: code
+    classic: true
+  - name: firefox
+    classic: false
+
+# External tools (installed via scripts/releases)
+install_uv: true
+install_kind: true
+install_k9s: true
+install_nvm: true
+install_fisher: true
+install_claude_cli: true
