@@ -39,3 +39,4 @@ install_k9s: true
 install_nvm: true
 install_fisher: true
 install_claude_cli: true
+install_gcloud: true
